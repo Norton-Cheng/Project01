@@ -1,0 +1,197 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+	<title>天天生鲜-购物车</title>
+	<link rel="stylesheet" type="text/css" href="/static/css/reset.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/main.css">
+	<script type="text/javascript" src="/static/js/jquery-1.12.4.min.js"></script>
+    <script>
+        {#计算商品的小计和总价#}
+        function total() {
+            all_total=0;
+            count1 = 0;
+            count2 = 0;
+            $('.col07').each(function (){
+               {#获取单价 #}
+                price=$(this).prev().prev().text();
+                {#获取数量#}
+                count=$(this).prev().find('input').val();
+                {#计算小计#}
+                etotal=parseFloat(price)*parseFloat(count);
+                {#累计-算总价#}
+                all_total += etotal;
+                {#累计小计#}
+                $(this).text(etotal.toFixed('2')+'元');
+                count1++;
+                count2++;
+            });
+            $('#total').text(all_total.toFixed(2));
+            $('#count1').text(count1);
+            $('#count2').text(count2);
+        }
+
+        {#删除商品#}
+        function del(cid){
+            res=confirm('你确定要删除该商品吗？')
+            if (res){
+                $.get('/dailyfresh/del'+cid+'/',function (data) {
+                   if (data.ok===1){
+                       {#删除前端#}
+                       $('ul').remove('#'+cid);
+                       {#重新计算总价#}
+                       total();
+                   }
+                });
+            }
+        }
+
+        $(function () {
+            total();
+            $('#check_all').click(function f() {
+                {#获取全选框的状态#}
+                state=$(this).prop('checked');
+                $(':checkbox:not(#check_all)').prop('checked',state);
+            });
+            {#选择#}
+            $(':checkbox:not(#check_all)').click(function () {
+                {#全选框以外的复选框是否选中#}
+                if($(this).prop('checked')){
+                    {#是否都被选中#}
+                    if ($(":checked").length+1==$(":checkbox").length){
+                        $("#check_all").prop("checked",true);
+                    }
+                }else {
+                    {#没有选中#}
+                    $('#check_all').prop('checked',false)
+                }
+            });
+            {#数量加、减#}
+            $('.add').click(function () {
+                txt=$(this).next();
+                txt.val(parseInt(txt.val())+1).blur();
+            });
+            $('.minus').click(function () {
+                txt=$(this).prev();
+                txt.val(parseInt(txt.val())-1).blur();
+            });
+
+            $('.num_show').blur(function () {
+                {#判断数字的正确性#}
+                number=parseInt($(this).val());
+                if (0 >=number ){
+                    alert('请输入正确的数量')
+                    $(this).val(1).blur();
+                    return;
+                }
+                {#获取点击的url的id#}
+                uid=$(this).parents('.cart_list_td').attr('id');
+                {#调用请求函数（修改数量，返回json数据：ok修改成功，不ok修改失败）#}
+                $.get('/dailyfresh/edit'+uid+'_'+number+'/',function (data) {
+                    if (data.ok===0){
+                        total();
+                    } else {
+                        {#显示原有的数据#}
+                        $(this).val(data.ok);
+                    }
+                });
+            });
+        })
+    </script>
+</head>
+
+<body>
+	<div class="header_con">
+		<div class="header">
+			<div class="welcome fl">欢迎来到天天生鲜!</div>
+			<div class="fr">
+                {% if request.session.sid %}
+                    <div class="login_btn fl">
+                        欢迎您：<em>{{ request.session.sname }}</em>
+                        <span>|</span>
+                        <a href="/dailyfresh/logout/">退出</a>
+                    </div>
+                {% else %}
+                    <div class="login_btn fl">
+                        <a href="/dailyfresh/login/">登录</a>
+                        <span>|</span>
+                        <a href="/dailyfresh/register/">注册</a>
+				    </div>
+                {% endif %}
+
+				<div class="user_link fl">
+					<span>|</span>
+					<a href="/dailyfresh/info/">用户中心</a>
+					<span>|</span>
+					<a href="/dailyfresh/cart/">我的购物车</a>
+					<span>|</span>
+					<a href="/dailyfresh/order/">我的订单</a>
+				</div>
+			</div>
+		</div>		
+	</div>
+
+	<div class="search_bar clearfix">
+		<a href="/dailyfresh/index/" class="logo fl"><img src="/static/images/logo.png"></a>
+		<div class="sub_page_name fl">|&nbsp;&nbsp;&nbsp;&nbsp;购物车</div>
+		<div class="search_con fr">
+			<input type="text" class="input_text fl" name="" placeholder="搜索商品">
+			<input type="button" class="input_btn fr" name="" value="搜索">
+		</div>
+	</div>
+
+	<div class="total_count">全部商品<em id="count1">2</em>件</div>
+	<ul class="cart_list_th clearfix">
+		<li class="col01">商品名称</li>
+		<li class="col02">商品单位</li>
+		<li class="col03">商品价格</li>
+		<li class="col04">数量</li>
+		<li class="col05">小计</li>
+		<li class="col06">操作</li>
+	</ul>
+
+    {% for cart in carts %}
+        <ul class="cart_list_td clearfix" id="{{ cart.id }}">
+            <li class="col01"><input type="checkbox" name="" checked></li>
+            <li class="col02"><img src="/static/images/goods/{{ cart.goods.gpicture }}.jpg"></li>
+            <li class="col03">{{ cart.goods.gtitle }}<br><em>{{ cart.goods.gprice }}元/{{ cart.goods.gunit }}</em></li>
+            <li class="col04">{{ cart.goods.gunit }}</li>
+            <li class="col05">{{ cart.goods.gprice }}</li>
+            <li class="col06">
+                <div class="num_add">
+                    <a href="javascript:;" class="add fl">+</a>
+                    <input type="text" class="num_show fl" value="{{ cart.count }}">
+                    <a href="javascript:;" class="minus fl">-</a>
+                </div>
+            </li>
+            <li class="col07">{{ cart.goods.gprice }}元</li>
+            <li class="col08"><a href="javascript:del({{ cart.id }});">删除</a></li>
+        </ul>
+    {% endfor %}
+
+	<ul class="settlements">
+		<li class="col01"><input type="checkbox" name="" checked="" id="check_all"></li>
+		<li class="col02">全选</li>
+		<li class="col03">合计(不含运费)：
+            <span>¥</span>
+            <em id="total">42.60</em>
+            <br>共计<b id="count2">2</b>件商品</li>
+		<li class="col04"><a href="#">去结算</a></li>
+	</ul>
+
+	<div class="footer">
+		<div class="foot_link">
+			<a href="#">关于我们</a>
+			<span>|</span>
+			<a href="#">联系我们</a>
+			<span>|</span>
+			<a href="#">招聘人才</a>
+			<span>|</span>
+			<a href="#">友情链接</a>		
+		</div>
+		<p>CopyRight © 2016 北京天天生鲜信息技术有限公司 All Rights Reserved</p>
+		<p>电话：010-****888    京ICP备*******8号</p>
+	</div>
+	
+</body>
+</html>
